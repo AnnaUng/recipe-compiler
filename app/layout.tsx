@@ -48,6 +48,12 @@ export default function RootLayout({
                 Desserts
               </Link>
               <Link
+                href="/eat-my-fridge"
+                className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
+              >
+                Eat My Fridge
+              </Link>
+              <Link
                 href="/import"
                 className="rounded-full bg-zinc-900 px-4 py-1.5 text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
               >

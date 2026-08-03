@@ -37,6 +37,18 @@ export default function Home() {
         </Link>
       </div>
       <Link
+        href="/eat-my-fridge"
+        className="group mt-4 flex w-full max-w-2xl flex-col items-center justify-center rounded-2xl border border-blue-200 bg-blue-50 p-10 text-center transition-shadow hover:shadow-md dark:border-blue-800 dark:bg-blue-900/20"
+      >
+        <span className="text-3xl">🧊</span>
+        <span className="mt-3 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+          Eat My Fridge
+        </span>
+        <span className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          Select what you have at home and get recipes you can make right now
+        </span>
+      </Link>
+      <Link
         href="/import"
         className="mt-12 rounded-full bg-zinc-900 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
       >
