@@ -10,6 +10,8 @@ A web app compiling all the recipes your family has made and likes into clean, e
 - **Add a recipe manually** — enter the title, source, servings, times, health rating, ingredients, and instructions, then save it to your family collection in Supabase. The form is manual-first and reliable; no AI required.
 - **Import helpers (optional)** — paste a recipe URL or social media link to scrape it, or upload a photo for AI vision extraction. Everything is pre-filled into the same manual form so you can review and fix it before saving.
 - **Eat My Fridge** — select the ingredients you have at home from a checklist (or add your own). The app searches **your family recipe collection in Supabase**, ranks recipes by what percentage of their ingredients you have, and shows each result with a match badge and any missing ingredients.
+- **Search the Web** — from Eat My Fridge, search the web for highly rated recipes that use your selected ingredients (powered by Google Custom Search). Results are sorted by their aggregate rating scraped from each recipe page's structured data. Each result lets you open the original recipe or **Download & Edit** it into your collection.
+- **Download & Edit** — any online recipe found via web search opens the existing import form pre-filled from the recipe's structured data. You can rename it, edit ingredients/instructions, adjust servings/times/rating, and save it to your family collection. The original source URL is preserved as a link on the recipe page.
 
 ## Getting Started
 
@@ -45,6 +47,20 @@ Run `supabase/schema.sql` in the Supabase SQL Editor to create the tables, permi
 
 RLS policies are intentionally open (`select`/`insert`/`update`/`delete` for all users on all three tables) since this is a personal/family app without authentication. If you add auth later, tighten these policies.
 
+## Web Search Configuration (optional "Search the Web")
+
+The "Search the Web" feature in Eat My Fridge uses the [Google Programmable Search Engine](https://developers.google.com/custom-search/v1/overview) API.
+
+```env
+SEARCH_API_KEY=your_google_cse_api_key_here
+SEARCH_ENGINE_ID=your_google_cse_engine_id_here
+```
+
+- `SEARCH_API_KEY` — Google Custom Search JSON API key.
+- `SEARCH_ENGINE_ID` — your Programmable Search Engine ID (Search Engine ID, `cx`).
+
+Set up a search engine that searches the entire web (or specific recipe sites you trust). The free tier allows 100 searches per day. Without these keys, the manual recipe search still works — only "Search the Web" is disabled.
+
 ## AI Configuration (optional import helpers)
 
 Photo AI extraction and link/social scraping require an OpenAI-compatible API. Without these keys, the manual form still works perfectly.
@@ -59,6 +75,16 @@ AI_MODEL=gpt-4o
 - `AI_API_KEY` — required for photo extraction and link scraping.
 - `AI_API_BASE_URL` — default `https://api.openai.com/v1`. Point to any OpenAI-compatible endpoint.
 - `AI_MODEL` — default `gpt-4o`. Must support image input for photo extraction.
+
+## How "Search the Web" works
+
+When you click "Search the web" on Eat My Fridge results:
+
+1. The app builds a query from your selected ingredients and sends it to Google Custom Search.
+2. For each result, the server fetches the recipe page and extracts its JSON-LD structured data (same parser used by the link import helper).
+3. It reads the page's `aggregateRating` (`ratingValue` and `ratingCount`) to show how highly rated each recipe is.
+4. Results are sorted by highest rating first (rating count breaks ties), so highly rated recipes appear at the top.
+5. Each card links out to the original recipe or opens the Import page pre-filled via `?url=` for editing and saving to your collection.
 
 ## How Eat My Fridge works
 
@@ -85,6 +111,7 @@ app/
     extract/         # Social media caption/transcript extraction (optional)
     analyze-photo/   # AI photo-to-recipe extraction (optional)
     fridge-recipes/  # Eat My Fridge: matches family recipes by ingredient overlap
+    search-web/      # Google CSE web search + rating scrape for highly rated recipes
     recipes/         # GET (list/single) + POST (create) recipes in Supabase
   recipes/[id]/      # Recipe detail page
   desserts/          # Desserts listing (reads Supabase)
@@ -96,11 +123,12 @@ components/
   HealthRating.tsx     # Star rating display
   UnitToggle.tsx       # Metric/Imperial toggle
 lib/
-  types.ts        # TypeScript types
-  recipes.ts      # Async Supabase data layer (server-only: getRecipeById, getRecipes, ...)
-  recipe-utils.ts # Client-safe helpers (getTotalCost)
-  units.ts        # Unit conversion logic
-  ingredients.ts  # Curated ingredient checklist for Eat My Fridge
+  types.ts         # TypeScript types
+  recipes.ts       # Async Supabase data layer (server-only: getRecipeById, getRecipes, ...)
+  recipe-utils.ts  # Client-safe helpers (getTotalCost)
+  units.ts         # Unit conversion logic
+  ingredients.ts   # Curated ingredient checklist for Eat My Fridge
+  scrape-recipe.ts # Shared JSON-LD recipe scraper (used by /api/extract and /api/search-web)
 utils/
   supabase/
     server.ts     # Server Supabase client (cookies)

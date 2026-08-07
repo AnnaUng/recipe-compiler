@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { Category, Ingredient, SourceType } from "@/lib/types";
 
 interface ExtractedRecipe {
@@ -12,14 +13,17 @@ interface ExtractedRecipe {
   healthRating: number;
   ingredients: Ingredient[];
   instructions: string[];
+  image?: string;
 }
 
 const EMPTY_INGREDIENT: Ingredient = { name: "", quantity: 0, unit: "g", cost: 0 };
 
-export default function ImportPage() {
+function ImportPageContent() {
+  const searchParams = useSearchParams();
   const [sourceType, setSourceType] = useState<SourceType>("link");
-  const [link, setLink] = useState("");
+  const [link, setLink] = useState(() => searchParams.get("url") || "");
   const [photo, setPhoto] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<Category>("main");
   const [servings, setServings] = useState(4);
@@ -47,15 +51,16 @@ export default function ImportPage() {
     reader.readAsDataURL(file);
   }
 
-  async function handleExtractLink() {
-    if (!link.trim()) return;
+  async function handleExtractLink(urlOverride?: string) {
+    const targetUrl = urlOverride?.trim() || link.trim();
+    if (!targetUrl) return;
     setExtracting(true);
     setExtractError("");
     try {
       const res = await fetch("/api/extract", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: link.trim() }),
+        body: JSON.stringify({ url: targetUrl }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -67,6 +72,7 @@ export default function ImportPage() {
         // Fill the form with scraped recipe data
         const r = data.recipe;
         setTitle(r.title || "");
+        setImageUrl(r.image || "");
         setCategory(r.category || "main");
         setServings(r.servings || 4);
         setPrepTime(r.prepTime || 10);
@@ -89,6 +95,19 @@ export default function ImportPage() {
       setExtracting(false);
     }
   }
+
+  // Auto-extract a recipe when arriving with a ?url= query param
+  // (e.g. from "Download & Edit" in Eat My Fridge web results).
+  useEffect(() => {
+    const urlParam = searchParams.get("url");
+    if (!urlParam) return;
+    // Fetch external recipe data on mount when arriving with a ?url= param.
+    // The setState calls inside handleExtractLink are async (after fetch),
+    // so this is a legitimate data-loading effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    handleExtractLink(urlParam);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   async function handleAnalyzePhoto() {
     if (!photo) return;
@@ -171,7 +190,7 @@ export default function ImportPage() {
         body: JSON.stringify({
           title: title.trim(),
           category,
-          image: photo || "/next.svg",
+          image: photo || imageUrl || "/next.svg",
           source: {
             type: sourceType,
             value:
@@ -207,6 +226,7 @@ export default function ImportPage() {
     setTitle("");
     setLink("");
     setPhoto(null);
+    setImageUrl("");
     setIngredients([{ ...EMPTY_INGREDIENT }]);
     setInstructions([""]);
     setExtractedCaption("");
@@ -293,7 +313,7 @@ export default function ImportPage() {
                     className={inputClass}
                   />
                   <button
-                    onClick={handleExtractLink}
+                    onClick={() => handleExtractLink()}
                     disabled={extracting || !link.trim()}
                     className="shrink-0 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
                   >
@@ -317,7 +337,7 @@ export default function ImportPage() {
                     className={inputClass}
                   />
                   <button
-                    onClick={handleExtractLink}
+                    onClick={() => handleExtractLink()}
                     disabled={extracting || !link.trim()}
                     className="shrink-0 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
                   >
@@ -589,5 +609,19 @@ export default function ImportPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ImportPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-3xl px-4 py-12 text-zinc-600 dark:text-zinc-400">
+          Loading...
+        </div>
+      }
+    >
+      <ImportPageContent />
+    </Suspense>
   );
 }
