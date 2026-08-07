@@ -1,13 +1,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getRecipeById, getTotalCost } from "@/lib/recipes";
+import { getRecipeById } from "@/lib/recipes";
+import { getTotalCost } from "@/lib/recipe-utils";
 import HealthRating from "@/components/HealthRating";
 import UnitToggle from "@/components/UnitToggle";
 
-export default async function RecipePage(props: PageProps<"/recipes/[id]">) {
-  const { id } = await props.params;
-  const recipe = getRecipeById(id);
+export const dynamic = "force-dynamic";
+
+export default async function RecipePage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const recipe = await getRecipeById(id);
 
   if (!recipe) {
     notFound();

@@ -1,8 +1,10 @@
 import { getRecipesByCategory } from "@/lib/recipes";
 import RecipeCard from "@/components/RecipeCard";
 
-export default function DessertsPage() {
-  const desserts = getRecipesByCategory("dessert");
+export const dynamic = "force-dynamic";
+
+export default async function DessertsPage() {
+  const desserts = await getRecipesByCategory("dessert");
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-12">

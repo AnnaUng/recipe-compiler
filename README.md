@@ -1,16 +1,15 @@
 # Recipe Compiler
 
-A web app that compiles recipes from links, social media posts, and photos into clean, easy-to-follow lists. Built with Next.js 16 (App Router), TypeScript, and Tailwind CSS v4.
+A web app compiling all the recipes your family has made and likes into clean, easy-to-follow lists. Built with Next.js 16 (App Router), TypeScript, Tailwind CSS v4, and Supabase.
 
 ## Features
 
-- **Browse by category** — Mains and Desserts.
+- **Browse by category** — Mains and Desserts, stored in Supabase.
 - **Recipe details** — ingredients, total cost, cost per serving, servings, prep time, cook time, and a 1–5 health rating.
 - **Unit conversion** — toggle between Metric and baking-friendly Imperial (cups/tbsp/tsp) on any recipe page.
-- **Import from link** — paste a recipe URL and save it with the source link.
-- **Import from social media** — paste a YouTube/Instagram/TikTok link. The app extracts the caption/transcript (YouTube supported via transcript) and saves the original link so you can watch the video.
-- **Import from photo** — upload a photo and an AI vision model reads it and auto-fills the recipe details, which you can review before saving. Imported recipes are stored in your browser (localStorage).
-- **Eat My Fridge** — select the ingredients you have at home from a checklist (or add your own). The app searches the web for real recipes you can make with only those ingredients. If a recipe needs something you don't have but an easy substitute exists, it's shown with a warning that the substitute may slightly change the dish.
+- **Add a recipe manually** — enter the title, source, servings, times, health rating, ingredients, and instructions, then save it to your family collection in Supabase. The form is manual-first and reliable; no AI required.
+- **Import helpers (optional)** — paste a recipe URL or social media link to scrape it, or upload a photo for AI vision extraction. Everything is pre-filled into the same manual form so you can review and fix it before saving.
+- **Eat My Fridge** — select the ingredients you have at home from a checklist (or add your own). The app searches **your family recipe collection in Supabase**, ranks recipes by what percentage of their ingredients you have, and shows each result with a match badge and any missing ingredients.
 
 ## Getting Started
 
@@ -21,9 +20,34 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## AI Configuration
+## Supabase Setup
 
-Photo AI extraction and the Eat My Fridge recipe search require an OpenAI-compatible API. Create a `.env.local` file in the project root:
+Recipes are stored in Supabase. Create a `.env.local` file in the project root:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_publishable_key_here
+```
+
+You can find both values in the Supabase dashboard under **Project Settings → API**. The app follows the official Supabase Next.js pattern with `@supabase/ssr`:
+
+- `utils/supabase/server.ts` — server client bound to the request's cookies (used by the data layer and API routes).
+- `utils/supabase/client.ts` — browser client for client components.
+- `utils/supabase/middleware.ts` — middleware helper that keeps sessions refreshed (ready for when you add auth).
+
+### Database schema
+
+Run `supabase/schema.sql` in the Supabase SQL Editor to create the tables, permissive Row Level Security policies, and seed the 4 original sample recipes:
+
+- `recipes` — one row per recipe (title, category, image, source, servings, times, health rating)
+- `ingredients` — normalized ingredient rows per recipe (name, quantity, unit, cost, position for ordering)
+- `instructions` — ordered instruction steps per recipe
+
+RLS policies are intentionally open (`select`/`insert`/`update`/`delete` for all users on all three tables) since this is a personal/family app without authentication. If you add auth later, tighten these policies.
+
+## AI Configuration (optional import helpers)
+
+Photo AI extraction and link/social scraping require an OpenAI-compatible API. Without these keys, the manual form still works perfectly.
 
 ```env
 AI_API_KEY=your_api_key_here
@@ -32,39 +56,19 @@ AI_API_BASE_URL=https://api.openai.com/v1
 AI_MODEL=gpt-4o
 ```
 
-- `AI_API_KEY` — required for photo extraction and Eat My Fridge.
+- `AI_API_KEY` — required for photo extraction and link scraping.
 - `AI_API_BASE_URL` — default `https://api.openai.com/v1`. Point to any OpenAI-compatible endpoint.
 - `AI_MODEL` — default `gpt-4o`. Must support image input for photo extraction.
 
-### Eat My Fridge — web search
+## How Eat My Fridge works
 
-Eat My Fridge asks the AI to **search the web** for real recipes matching your ingredients. The route tries Google Search grounding first (via Gemini's native API) and falls back to the OpenAI-compatible endpoint if unavailable.
+No AI is involved. When you search, the app:
 
-#### Google Gemini (recommended)
-
-Get an API key from [Google AI Studio](https://aistudio.google.com/apikey). Configure:
-
-```env
-AI_API_KEY=your_gemini_api_key
-AI_API_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-AI_MODEL=gemini-3.5-flash
-```
-
-The route automatically detects Gemini and calls the native `generateContent` API with the `google_search` tool for true web search. **Note:** Google Search grounding requires a paid Gemini plan. On the free tier, the route falls back to the OpenAI-compatible endpoint (recipes from AI training data, no live web search). The UI shows a warning banner when web search is unavailable.
-
-#### Perplexity (alternative)
-
-[Perplexity](https://docs.perplexity.ai) is a drop-in OpenAI-compatible provider that does web search by default:
-
-```env
-AI_API_KEY=your_perplexity_api_key
-AI_API_BASE_URL=https://api.perplexity.ai
-AI_MODEL=sonar
-```
-
-#### Other OpenAI-compatible providers
-
-Any OpenAI-compatible endpoint works. Without a web-search-capable provider, the AI will suggest recipes from its training data — they may be plausible but not guaranteed to be real or current.
+1. Loads every recipe in your family collection from Supabase.
+2. Normalizes ingredient names and matches them against your selected ingredients (with pantry staples like salt, pepper, oil, flour, and sugar automatically allowed).
+3. Includes recipes where at least **50%** of the ingredients are covered by what you have.
+4. Sorts results by match percentage (highest first), then by fewest missing ingredients.
+5. Returns each recipe with a `matchCount`/`totalCount` and a `missingIngredients` list so the UI can show exactly what you'd need to buy.
 
 ## Scripts
 
@@ -78,21 +82,29 @@ Any OpenAI-compatible endpoint works. Without a web-search-capable provider, the
 ```
 app/
   api/
-    extract/         # Social media caption/transcript extraction
-    analyze-photo/   # AI photo-to-recipe extraction
-    fridge-recipes/  # AI web-search for recipes by ingredients
+    extract/         # Social media caption/transcript extraction (optional)
+    analyze-photo/   # AI photo-to-recipe extraction (optional)
+    fridge-recipes/  # Eat My Fridge: matches family recipes by ingredient overlap
+    recipes/         # GET (list/single) + POST (create) recipes in Supabase
   recipes/[id]/      # Recipe detail page
-  desserts/          # Desserts listing
-  mains/             # Mains listing
-  import/            # Import page (link / social / photo)
-  eat-my-fridge/     # Ingredient checklist + AI recipe search
+  desserts/          # Desserts listing (reads Supabase)
+  mains/             # Mains listing (reads Supabase)
+  import/            # Manual-first recipe entry + optional AI import helpers
+  eat-my-fridge/     # Ingredient checklist + family recipe match results
 components/
   RecipeCard.tsx       # Recipe card
-  FridgeRecipeCard.tsx # Eat My Fridge result card with substitute warnings
   HealthRating.tsx     # Star rating display
   UnitToggle.tsx       # Metric/Imperial toggle
 lib/
   types.ts        # TypeScript types
-  recipes.ts      # Sample recipe data
+  recipes.ts      # Async Supabase data layer (server-only: getRecipeById, getRecipes, ...)
+  recipe-utils.ts # Client-safe helpers (getTotalCost)
   units.ts        # Unit conversion logic
   ingredients.ts  # Curated ingredient checklist for Eat My Fridge
+utils/
+  supabase/
+    server.ts     # Server Supabase client (cookies)
+    client.ts     # Browser Supabase client
+    middleware.ts # Middleware helper for session refresh
+supabase/
+  schema.sql      # Database schema + RLS policies + seed data

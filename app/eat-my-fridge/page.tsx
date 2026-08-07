@@ -2,8 +2,14 @@
 
 import { useState } from "react";
 import { ingredientGroups } from "@/lib/ingredients";
-import type { FridgeRecipe } from "@/lib/types";
-import FridgeRecipeCard from "@/components/FridgeRecipeCard";
+import type { Recipe } from "@/lib/types";
+import RecipeCard from "@/components/RecipeCard";
+
+interface FridgeResult extends Recipe {
+  matchCount: number;
+  totalCount: number;
+  missingIngredients: string[];
+}
 
 export default function EatMyFridgePage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -11,8 +17,7 @@ export default function EatMyFridgePage() {
   const [customIngredients, setCustomIngredients] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [results, setResults] = useState<FridgeRecipe[] | null>(null);
-  const [webSearchUsed, setWebSearchUsed] = useState(false);
+  const [results, setResults] = useState<FridgeResult[] | null>(null);
 
   function toggleIngredient(value: string) {
     setSelected((prev) => {
@@ -58,7 +63,6 @@ export default function EatMyFridgePage() {
         return;
       }
       setResults(data.recipes || []);
-      setWebSearchUsed(data.webSearchUsed || false);
     } catch {
       setError("Could not reach the recipe search service.");
     } finally {
@@ -69,7 +73,6 @@ export default function EatMyFridgePage() {
   function resetSearch() {
     setResults(null);
     setError("");
-    setWebSearchUsed(false);
   }
 
   return (
@@ -78,9 +81,9 @@ export default function EatMyFridgePage() {
         {"🧊 Eat My Fridge"}
       </h1>
       <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-        Select the ingredients you have at home. The app will search the web
-        for recipes you can make right now — no extra shopping needed (unless
-        there is an easy substitute, which will be flagged with a warning).
+        Select the ingredients you have at home. The app will search your
+        family recipe collection and show the recipes you can make right now —
+        sorted by how many of your ingredients each recipe uses.
       </p>
 
       {results === null ? (
@@ -221,35 +224,39 @@ export default function EatMyFridgePage() {
             </button>
           </div>
 
-          {!webSearchUsed && results.length > 0 && (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-              <p className="font-semibold">Note: Live web search unavailable</p>
-              <p className="mt-1">
-                Google Search grounding requires a paid Gemini plan. Recipes
-                below are generated from the AI training data and may not have
-                real source URLs. To enable true web search, enable billing in
-                Google AI Studio or use a web-search-capable provider like
-                Perplexity.
-              </p>
-            </div>
-          )}
-
           {results.length === 0 ? (
             <div className="mt-8 rounded-2xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-800 dark:bg-zinc-900">
               <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
                 No matching recipes found
               </p>
               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                The AI could not find recipes that use only your ingredients
-                without needing hard-to-substitute items. Try selecting a few
-                more ingredients and search again.
+                None of your family recipes use at least half of the ingredients
+                you selected. Try selecting a few more ingredients and search
+                again.
               </p>
             </div>
           ) : (
             <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {results.map((recipe, i) => (
-                <FridgeRecipeCard key={i} recipe={recipe} />
-              ))}
+              {results.map((recipe) => {
+                const matchPct = Math.round(
+                  (recipe.matchCount / recipe.totalCount) * 100
+                );
+                return (
+                  <div key={recipe.id} className="flex flex-col gap-2">
+                    <RecipeCard recipe={recipe} />
+                    <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-900">
+                      <p className="font-medium text-zinc-900 dark:text-zinc-50">
+                        {matchPct}% match
+                      </p>
+                      {recipe.missingIngredients.length > 0 && (
+                        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
+                          Missing: {recipe.missingIngredients.join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

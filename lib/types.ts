@@ -33,32 +33,3 @@ export interface Recipe {
   instructions: string[];
 }
 
-/** A substitute required for a recipe when the user lacks an ingredient. */
-export interface SubstituteNeeded {
-  /** The ingredient the recipe calls for that the user does not have. */
-  ingredient: string;
-  /** What the user can use instead (using only ingredients they have). */
-  substituteWith: string;
-  /** Warning explaining the substitution and that it may change the dish. */
-  warning: string;
-}
-
-/** A recipe returned by the "Eat My Fridge" AI search. */
-export interface FridgeRecipe {
-  title: string;
-  /** Image URL (absolute https URL, may be empty string). */
-  image: string;
-  /** Source URL of the original recipe. */
-  sourceUrl: string;
-  servings: number;
-  /** Prep time in minutes */
-  prepTime: number;
-  /** Cook time in minutes */
-  cookTime: number;
-  /** 1-5 health rating */
-  healthRating: number;
-  ingredients: Ingredient[];
-  instructions: string[];
-  /** Ingredients the user doesn't have but for which an easy substitute exists. */
-  substitutesNeeded: SubstituteNeeded[];
-}

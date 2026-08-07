@@ -29,6 +29,8 @@ export default function ImportPage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([EMPTY_INGREDIENT]);
   const [instructions, setInstructions] = useState<string[]>([""]);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   // Extraction states
   const [extracting, setExtracting] = useState(false);
@@ -155,36 +157,49 @@ export default function ImportPage() {
     setInstructions((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleSave() {
+  async function handleSave() {
     const validIngredients = ingredients.filter((ing) => ing.name.trim() !== "");
     const validInstructions = instructions.filter((s) => s.trim() !== "");
     if (!title.trim() || validIngredients.length === 0) return;
 
-    const recipe = {
-      id: `imported-${Date.now()}`,
-      title: title.trim(),
-      category,
-      image: photo || "/next.svg",
-      source: {
-        type: sourceType,
-        value:
-          sourceType === "link"
-            ? link.trim()
-            : sourceType === "social"
-            ? link.trim()
-            : "Imported photo",
-      },
-      servings,
-      prepTime,
-      cookTime,
-      healthRating,
-      ingredients: validIngredients,
-      instructions: validInstructions,
-    };
-
-    const existing = JSON.parse(localStorage.getItem("imported-recipes") || "[]");
-    localStorage.setItem("imported-recipes", JSON.stringify([...existing, recipe]));
-    setSaved(true);
+    setSaving(true);
+    setSaveError("");
+    try {
+      const res = await fetch("/api/recipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: title.trim(),
+          category,
+          image: photo || "/next.svg",
+          source: {
+            type: sourceType,
+            value:
+              sourceType === "link"
+                ? link.trim()
+                : sourceType === "social"
+                ? link.trim()
+                : "Imported photo",
+          },
+          servings,
+          prepTime,
+          cookTime,
+          healthRating,
+          ingredients: validIngredients,
+          instructions: validInstructions,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSaveError(data.error || "Could not save the recipe. Please try again.");
+        return;
+      }
+      setSaved(true);
+    } catch {
+      setSaveError("Could not reach the recipe service.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function resetForm() {
@@ -218,7 +233,7 @@ export default function ImportPage() {
             Recipe saved!
           </p>
           <p className="mt-1 text-sm text-green-700 dark:text-green-400">
-            Your recipe is stored in your browser. Add another or browse the categories.
+            Your recipe is saved to your family collection. Add another or browse the categories.
           </p>
           <button
             onClick={resetForm}
@@ -558,11 +573,18 @@ export default function ImportPage() {
             </div>
           </div>
 
+          {saveError && (
+            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+              {saveError}
+            </p>
+          )}
+
           <button
             onClick={handleSave}
-            className="w-full rounded-full bg-zinc-900 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+            disabled={saving}
+            className="w-full rounded-full bg-zinc-900 py-3 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
           >
-            Save Recipe
+            {saving ? "Saving..." : "Save Recipe"}
           </button>
         </div>
       )}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import type { Recipe } from "@/lib/types";
-import { getTotalCost } from "@/lib/recipes";
+import { getTotalCost } from "@/lib/recipe-utils";
 import HealthRating from "./HealthRating";
 
 export default function RecipeCard({ recipe }: { recipe: Recipe }) {
