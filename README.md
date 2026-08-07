@@ -59,6 +59,15 @@ SEARCH_ENGINE_ID=your_google_cse_engine_id_here
 - `SEARCH_API_KEY` — Google Custom Search JSON API key.
 - `SEARCH_ENGINE_ID` — your Programmable Search Engine ID (Search Engine ID, `cx`).
 
+### Enabling the Custom Search JSON API
+
+The API key must be associated with a Google Cloud project that has the **Custom Search JSON API** enabled:
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/apis/library/customsearch.googleapis.com).
+2. Select the project that owns your API key.
+3. Click **Enable** on the Custom Search JSON API page.
+4. Verify your API key works by testing the endpoint.
+
 Set up a search engine that searches the entire web (or specific recipe sites you trust). The free tier allows 100 searches per day. Without these keys, the manual recipe search still works — only "Search the Web" is disabled.
 
 ## AI Configuration (optional import helpers)

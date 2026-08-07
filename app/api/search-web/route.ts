@@ -85,6 +85,16 @@ export async function POST(req: NextRequest) {
 
     if (!searchRes.ok) {
       const errorText = await searchRes.text();
+      // Detect the common "Custom Search JSON API not enabled" case
+      if (searchRes.status === 403 && errorText.includes("Custom Search JSON API")) {
+        return NextResponse.json(
+          {
+            error:
+              "Google Custom Search JSON API is not enabled for this API key. Enable it in the Google Cloud Console: https://console.cloud.google.com/apis/library/customsearch.googleapis.com",
+          },
+          { status: 502 }
+        );
+      }
       return NextResponse.json(
         { error: `Search API error: ${searchRes.status} ${errorText}` },
         { status: 502 }
